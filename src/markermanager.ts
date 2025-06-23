@@ -19,6 +19,46 @@
 import { latLngToPixel } from "./utils";
 import { GridBounds } from "./gridbounds";
 
+// Type alias to support both legacy Marker and new AdvancedMarkerElement
+type MarkerType = google.maps.Marker | google.maps.marker.AdvancedMarkerElement;
+
+// Helper functions to abstract marker API differences
+function getMarkerPosition(marker: MarkerType): google.maps.LatLng | null {
+  if (marker instanceof google.maps.Marker) {
+    return marker.getPosition() || null;
+  } else {
+    // AdvancedMarkerElement
+    return marker.position as google.maps.LatLng || null;
+  }
+}
+
+function setMarkerMap(marker: MarkerType, map: google.maps.Map | null): void {
+  if (marker instanceof google.maps.Marker) {
+    marker.setMap(map);
+  } else {
+    // AdvancedMarkerElement
+    marker.map = map;
+  }
+}
+
+function setMarkerProperty(marker: MarkerType, key: string, value: any): void {
+  if (marker instanceof google.maps.Marker) {
+    marker.set(key, value);
+  } else {
+    // AdvancedMarkerElement - store custom properties
+    (marker as any)[key] = value;
+  }
+}
+
+function getMarkerProperty(marker: MarkerType, key: string): any {
+  if (marker instanceof google.maps.Marker) {
+    return marker.get(key);
+  } else {
+    // AdvancedMarkerElement - retrieve custom properties
+    return (marker as any)[key];
+  }
+}
+
 interface Options {
   maxZoom?: number;
   shown?: boolean;
@@ -41,7 +81,7 @@ class MarkerManager {
   private _swPadding: google.maps.Size;
   private _nePadding: google.maps.Size;
   private _gridWidth: { [k: string]: number };
-  private _grid: google.maps.Marker[][][][];
+  private _grid: MarkerType[][][][];
   private _numMarkers: { [k: string]: number };
   private _shownBounds: GridBounds;
 
@@ -124,8 +164,8 @@ class MarkerManager {
    * They are used as callbacks, not as methods.
    * @param marker Marker to be removed from the map
    */
-  private _removeOverlay(marker: google.maps.Marker): void {
-    marker.setMap(null);
+  private _removeOverlay(marker: MarkerType): void {
+    setMarkerMap(marker, null);
     this.shownMarkers--;
   }
 
@@ -134,9 +174,9 @@ class MarkerManager {
    * They are used as callbacks, not as methods.
    * @param marker Marker to be added to the map
    */
-  private _addOverlay(marker: google.maps.Marker): void {
+  private _addOverlay(marker: MarkerType): void {
     if (this.shown) {
-      marker.setMap(this._map);
+      setMarkerMap(marker, this._map);
       this.shownMarkers++;
     }
   }
@@ -176,10 +216,14 @@ class MarkerManager {
    *
    */
   private _getTilePoint(
-    latlng: google.maps.LatLng,
+    latlng: google.maps.LatLng | null,
     zoom: number,
     padding: google.maps.Size
   ): google.maps.Point {
+    if (!latlng) {
+      // Return a default point if latlng is null
+      return new google.maps.Point(0, 0);
+    }
     const pixelPoint = latLngToPixel(latlng, zoom);
 
     const point = new google.maps.Point(
@@ -200,12 +244,16 @@ class MarkerManager {
    * @param {Number} maxZoom The maximum zoom for displaying the marker.
    */
   private _addMarkerBatch(
-    marker: google.maps.Marker,
+    marker: MarkerType,
     minZoom: number,
     maxZoom: number
   ): void {
-    const mPoint = marker.getPosition();
-    marker.set("__minZoom", minZoom);
+    const mPoint = getMarkerPosition(marker);
+    if (!mPoint) {
+      console.warn("Marker position is null or undefined");
+      return;
+    }
+    setMarkerProperty(marker, "__minZoom", minZoom);
 
     // Tracking markers is expensive, so we do this only if the
     // user explicitly requested it when creating marker manager.
@@ -214,7 +262,7 @@ class MarkerManager {
         marker,
         "changed",
         (
-          marker: google.maps.Marker,
+          marker: MarkerType,
           oldPoint: google.maps.LatLng,
           newPoint: google.maps.LatLng
         ) => {
@@ -271,7 +319,7 @@ class MarkerManager {
    * @param {LatLng} newPoint The new position of the marker.
    */
   private _onMarkerMoved(
-    marker: google.maps.Marker,
+    marker: MarkerType,
     oldPoint: google.maps.LatLng,
     newPoint: google.maps.LatLng
   ): void {
@@ -325,15 +373,14 @@ class MarkerManager {
     }
   }
 
-  /**
-   * Removes marker from the manager and from the map
-   * (if it's currently visible).
-   * @param {GMarker} marker The marker to delete.
-   */
-  public removeMarker(marker: google.maps.Marker): void {
+  public removeMarker(marker: MarkerType): void {
     let zoom = this._maxZoom;
     let changed = false;
-    const point = marker.getPosition();
+    const point = getMarkerPosition(marker);
+    if (!point) {
+      console.warn("Cannot remove marker: position is null or undefined");
+      return;
+    }
     const grid = this._getTilePoint(point, zoom, new google.maps.Size(0, 0));
     while (zoom >= 0) {
       const cell = this._getGridCellNoCreate(grid.x, grid.y, zoom);
@@ -357,7 +404,10 @@ class MarkerManager {
     if (changed) {
       this._notifyListeners();
     }
-    this._numMarkers[marker.get("__minZoom")]--;
+    const minZoom = getMarkerProperty(marker, "__minZoom");
+    if (minZoom !== undefined) {
+      this._numMarkers[minZoom]--;
+    }
   }
 
   /**
@@ -369,7 +419,7 @@ class MarkerManager {
    * @param {Number} maxZoom The maximum zoom level to display the markers.
    */
   public addMarkers(
-    markers: google.maps.Marker[],
+    markers: MarkerType[],
     minZoom: number,
     maxZoom: number
   ): void {
@@ -416,7 +466,7 @@ class MarkerManager {
    * @param {Number} zoom - the zoom level
    * @return {GMarker} marker - the marker found at lat and lng
    */
-  public getMarker(lat: number, lng: number, zoom: number): google.maps.Marker {
+  public getMarker(lat: number, lng: number, zoom: number): MarkerType {
     const mPoint = new google.maps.LatLng(lat, lng);
     const gridPoint = this._getTilePoint(
       mPoint,
@@ -424,14 +474,16 @@ class MarkerManager {
       new google.maps.Size(0, 0)
     );
 
-    let marker = new google.maps.Marker({ position: mPoint });
+    let marker: MarkerType = new google.maps.marker.AdvancedMarkerElement({ position: mPoint });
 
     const cell = this._getGridCellNoCreate(gridPoint.x, gridPoint.y, zoom);
     if (cell !== undefined) {
       for (let i = 0; i < cell.length; i++) {
+        const cellMarkerPos = getMarkerPosition(cell[i]);
         if (
-          lat === cell[i].getPosition().lat() &&
-          lng === cell[i].getPosition().lng()
+          cellMarkerPos &&
+          lat === cellMarkerPos.lat() &&
+          lng === cellMarkerPos.lng()
         ) {
           marker = cell[i];
         }
@@ -448,14 +500,19 @@ class MarkerManager {
    * @param {Number} maxZoom The maximum zoom level to display the marker.
    */
   public addMarker(
-    marker: google.maps.Marker,
+    marker: MarkerType,
     minZoom: number,
     maxZoom: number
   ): void {
     maxZoom = this._getOptmaxZoom(maxZoom);
     this._addMarkerBatch(marker, minZoom, maxZoom);
+    const markerPosition = getMarkerPosition(marker);
+    if (!markerPosition) {
+      console.warn("Cannot add marker: position is null or undefined");
+      return;
+    }
     const gridPoint = this._getTilePoint(
-      marker.getPosition(),
+      markerPosition,
       this._mapZoom,
       new google.maps.Size(0, 0)
     );
@@ -484,7 +541,7 @@ class MarkerManager {
     x: number,
     y: number,
     z: number
-  ): google.maps.Marker[] {
+  ): MarkerType[] {
     // TODO document this
     if (x < 0) {
       x += this._gridWidth[z];
@@ -516,7 +573,7 @@ class MarkerManager {
     x: number,
     y: number,
     z: number
-  ): google.maps.Marker[] | null {
+  ): MarkerType[] | null {
     if (x < 0) {
       x += this._gridWidth[z];
     }
@@ -727,7 +784,7 @@ class MarkerManager {
    */
   private _processAll(
     bounds: GridBounds,
-    callback: (marker: google.maps.Marker) => void
+    callback: (marker: MarkerType) => void
   ): void {
     for (let x = bounds.minX; x <= bounds.maxX; x++) {
       for (let y = bounds.minY; y <= bounds.maxY; y++) {
@@ -748,7 +805,7 @@ class MarkerManager {
     x: number,
     y: number,
     z: number,
-    callback: (marker: google.maps.Marker) => void
+    callback: (marker: MarkerType) => void
   ): void {
     const cell = this._getGridCellNoCreate(x, y, z);
     if (cell) {
@@ -864,8 +921,8 @@ class MarkerManager {
    * Removes marker from cell. O(N).
    */
   private _removeMarkerFromCell(
-    cell: google.maps.Marker[],
-    marker: google.maps.Marker
+    cell: MarkerType[],
+    marker: MarkerType
   ): number {
     let shift = 0;
     for (let i = 0; i < cell.length; ++i) {
@@ -878,4 +935,4 @@ class MarkerManager {
   }
 }
 
-export { MarkerManager };
+export { MarkerManager, type MarkerType };

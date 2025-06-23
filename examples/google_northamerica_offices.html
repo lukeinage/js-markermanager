@@ -109,15 +109,20 @@
           position,
           title,
         };
-        if (icon !== false) {
-          markerOptions.shadow = icon.shadow;
-          markerOptions.icon = icon.icon;
-          markerOptions.shape = icon.shape;
+        
+        // For AdvancedMarkerElement, icon is handled differently
+        // Use content property instead of icon/shadow/shape
+        if (icon !== false && icon.icon) {
+          // Create a simple HTML content element for the marker
+          var content = document.createElement('div');
+          content.innerHTML = '<img src="' + icon.icon.url + '" style="width:' + 
+            icon.icon.size.width + 'px; height:' + icon.icon.size.height + 'px;">';
+          markerOptions.content = content;
         }
 
-        var marker = new google.maps.Marker(markerOptions);
+        var marker = new google.maps.marker.AdvancedMarkerElement(markerOptions);
 
-        google.maps.event.addListener(marker, "dblclick", function() {
+        google.maps.event.addListener(marker, "click", function() {
           mgr.removeMarker(marker);
           updateStatus(mgr.getMarkerCount(map.getZoom()));
         });
