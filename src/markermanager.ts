@@ -28,7 +28,17 @@ function getMarkerPosition(marker: MarkerType): google.maps.LatLng | null {
     return marker.getPosition() || null;
   } else {
     // AdvancedMarkerElement
-    return marker.position as google.maps.LatLng || null;
+    const position = marker.position;
+    if (!position) {
+      return null;
+    }
+    // Handle both LatLng and LatLngLiteral
+    if (position instanceof google.maps.LatLng) {
+      return position;
+    } else {
+      // Convert LatLngLiteral to LatLng
+      return new google.maps.LatLng(position.lat, position.lng);
+    }
   }
 }
 
@@ -474,7 +484,9 @@ class MarkerManager {
       new google.maps.Size(0, 0)
     );
 
-    let marker: MarkerType = new google.maps.marker.AdvancedMarkerElement({ position: mPoint });
+    let marker: MarkerType = new google.maps.marker.AdvancedMarkerElement({
+      position: mPoint,
+    });
 
     const cell = this._getGridCellNoCreate(gridPoint.x, gridPoint.y, zoom);
     if (cell !== undefined) {
@@ -499,11 +511,7 @@ class MarkerManager {
    * @param {Number} minZoom The minimum zoom level to display the marker.
    * @param {Number} maxZoom The maximum zoom level to display the marker.
    */
-  public addMarker(
-    marker: MarkerType,
-    minZoom: number,
-    maxZoom: number
-  ): void {
+  public addMarker(marker: MarkerType, minZoom: number, maxZoom: number): void {
     maxZoom = this._getOptmaxZoom(maxZoom);
     this._addMarkerBatch(marker, minZoom, maxZoom);
     const markerPosition = getMarkerPosition(marker);
@@ -537,11 +545,7 @@ class MarkerManager {
    * @param {Number} z The z coordinate of the cell.
    * @return {Array} The cell in the array.
    */
-  private _getGridCellCreate(
-    x: number,
-    y: number,
-    z: number
-  ): MarkerType[] {
+  private _getGridCellCreate(x: number, y: number, z: number): MarkerType[] {
     // TODO document this
     if (x < 0) {
       x += this._gridWidth[z];
