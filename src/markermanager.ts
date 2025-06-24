@@ -28,7 +28,17 @@ function getMarkerPosition(marker: MarkerType): google.maps.LatLng | null {
     return marker.getPosition() || null;
   } else {
     // AdvancedMarkerElement
-    return marker.position as google.maps.LatLng || null;
+    const position = marker.position;
+    if (!position) {
+      return null;
+    }
+    // Handle both LatLng and LatLngLiteral
+    if (position instanceof google.maps.LatLng) {
+      return position;
+    } else {
+      // Convert LatLngLiteral to LatLng
+      return new google.maps.LatLng(position.lat, position.lng);
+    }
   }
 }
 
