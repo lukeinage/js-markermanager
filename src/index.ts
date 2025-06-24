@@ -14,4 +14,4 @@
  * limitations under the License.
  */
 
-export { MarkerManager, type MarkerType } from "./markermanager";
+export { MarkerManager } from "./markermanager";

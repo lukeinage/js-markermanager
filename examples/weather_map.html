@@ -67,14 +67,12 @@
         for (var i = 0; i < n; ++i) {
           var tmpIcon = getWeatherIcon();
 
-          // Create content for AdvancedMarkerElement
-          var content = document.createElement('div');
-          content.innerHTML = '<img src="' + tmpIcon.icon.url + '" style="width:32px; height:32px;">';
-          
           batch.push(
-            new google.maps.marker.AdvancedMarkerElement({
+            new google.maps.Marker({
               position: getRandomPoint(),
-              content: content,
+              shadow: tmpIcon.shadow,
+              icon: tmpIcon.icon,
+              shape: tmpIcon.shape,
               title: "Weather marker"
             })
           );

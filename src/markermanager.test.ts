@@ -40,9 +40,8 @@ test("can construct MarkerManager", () => {
 test("can add and remove markers", () => {
   const map = new google.maps.Map(null);
   const mm = new MarkerManager(map, {});
-  const marker = new google.maps.marker.AdvancedMarkerElement({
-    position: { lat: 0, lng: 0 }
-  });
+  const marker = new google.maps.Marker();
+  marker.setPosition({ lat: 0, lng: 0 });
   mm["_shownBounds"] = new GridBounds(
     [new google.maps.Point(-10, -10), new google.maps.Point(10, 10)],
     6
