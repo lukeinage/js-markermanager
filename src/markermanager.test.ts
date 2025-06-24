@@ -41,11 +41,11 @@ test("can add and remove markers", () => {
   const map = new google.maps.Map(null);
   const mm = new MarkerManager(map, {});
   const marker = new google.maps.marker.AdvancedMarkerElement({
-    position: { lat: 0, lng: 0 }
+    position: { lat: 0, lng: 0 },
   });
   // Ensure position is set properly on the mock
   marker.position = { lat: 0, lng: 0 };
-  
+
   mm["_shownBounds"] = new GridBounds(
     [new google.maps.Point(-10, -10), new google.maps.Point(10, 10)],
     6
@@ -61,24 +61,24 @@ test("can add and remove markers", () => {
 test("can handle AdvancedMarkerElement with LatLngLiteral position", () => {
   const map = new google.maps.Map(null);
   const mm = new MarkerManager(map, {});
-  
+
   // Create marker with LatLngLiteral position (object with lat/lng properties)
   const marker = new google.maps.marker.AdvancedMarkerElement({
-    position: { lat: 37.7749, lng: -122.4194 } // This is a LatLngLiteral, not LatLng object
+    position: { lat: 37.7749, lng: -122.4194 }, // This is a LatLngLiteral, not LatLng object
   });
   // Ensure position is set properly on the mock
   marker.position = { lat: 37.7749, lng: -122.4194 };
-  
+
   mm["_shownBounds"] = new GridBounds(
     [new google.maps.Point(-10, -10), new google.maps.Point(10, 10)],
     6
   );
-  
+
   // This should not throw "latlng.lng is not a function" error
   expect(() => {
     mm.addMarker(marker, 0, 10);
   }).not.toThrow();
-  
+
   expect(mm.shownMarkers).toBe(1);
   mm.removeMarker(marker);
 });
