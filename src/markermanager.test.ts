@@ -82,3 +82,23 @@ test("can handle AdvancedMarkerElement with LatLngLiteral position", () => {
   expect(mm.shownMarkers).toBe(1);
   mm.removeMarker(marker);
 });
+
+test("can handle undefined map bounds", () => {
+  const map = new google.maps.Map(null);
+
+  // Mock getBounds to return undefined (as can happen when map is not fully initialized)
+  (map.getBounds as jest.Mock).mockReturnValue(undefined);
+
+  const mm = new MarkerManager(map, {});
+
+  // This should not throw an error when calling _getMapGridBounds
+  expect(() => {
+    const bounds = mm["_getMapGridBounds"]();
+    expect(bounds).toBeDefined();
+    expect(bounds.z).toBeDefined();
+    expect(bounds.minX).toBeDefined();
+    expect(bounds.maxX).toBeDefined();
+    expect(bounds.minY).toBeDefined();
+    expect(bounds.maxY).toBeDefined();
+  }).not.toThrow();
+});
