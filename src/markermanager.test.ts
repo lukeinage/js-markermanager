@@ -82,3 +82,67 @@ test("can handle AdvancedMarkerElement with LatLngLiteral position", () => {
   expect(mm.shownMarkers).toBe(1);
   mm.removeMarker(marker);
 });
+
+test("can handle undefined map bounds", () => {
+  const map = new google.maps.Map(null);
+
+  // Mock getBounds to return undefined (as can happen when map is not fully initialized)
+  (map.getBounds as jest.Mock).mockReturnValue(undefined);
+
+  const mm = new MarkerManager(map, {});
+
+  // This should not throw an error when calling _getMapGridBounds
+  expect(() => {
+    const bounds = mm["_getMapGridBounds"]();
+    expect(bounds).toBeDefined();
+    expect(bounds.z).toBeDefined();
+    expect(bounds.minX).toBeDefined();
+    expect(bounds.maxX).toBeDefined();
+    expect(bounds.minY).toBeDefined();
+    expect(bounds.maxY).toBeDefined();
+  }).not.toThrow();
+});
+
+test("can handle undefined map bounds with different zoom levels", () => {
+  const map = new google.maps.Map(null);
+  (map.getBounds as jest.Mock).mockReturnValue(undefined);
+  (map.getZoom as jest.Mock).mockReturnValue(15);
+
+  const mm = new MarkerManager(map, {});
+
+  const bounds = mm["_getMapGridBounds"]();
+  expect(bounds.z).toBe(15); // Should use the current map zoom level
+  expect(bounds.minX).toBe(0);
+  expect(bounds.maxX).toBe(0);
+  expect(bounds.minY).toBe(0);
+  expect(bounds.maxY).toBe(0);
+});
+
+test("normal operation with valid bounds still works", () => {
+  const map = new google.maps.Map(null);
+
+  // Mock valid bounds
+  const mockBounds = {
+    getSouthWest: jest
+      .fn()
+      .mockReturnValue({ lat: () => 40.7128, lng: () => -74.006 }),
+    getNorthEast: jest
+      .fn()
+      .mockReturnValue({ lat: () => 40.7829, lng: () => -73.9441 }),
+  };
+  (map.getBounds as jest.Mock).mockReturnValue(mockBounds);
+  (map.getZoom as jest.Mock).mockReturnValue(10);
+
+  const mm = new MarkerManager(map, {});
+
+  // Should not throw and should call the normal _getGridBounds method
+  expect(() => {
+    const bounds = mm["_getMapGridBounds"]();
+    expect(bounds).toBeDefined();
+    expect(bounds.z).toBe(10);
+  }).not.toThrow();
+
+  // Verify that the mock bounds methods were called
+  expect(mockBounds.getSouthWest).toHaveBeenCalled();
+  expect(mockBounds.getNorthEast).toHaveBeenCalled();
+});

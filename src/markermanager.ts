@@ -642,8 +642,18 @@ class MarkerManager {
    * @return {Bounds} The bounds in grid space.
    */
   private _getMapGridBounds(): GridBounds {
+    const mapBounds = this._map.getBounds();
+
+    // Handle case when map bounds are undefined (map not fully initialized)
+    if (!mapBounds) {
+      // Return a minimal default bounds to prevent errors
+      const defaultSW = new google.maps.Point(0, 0);
+      const defaultNE = new google.maps.Point(0, 0);
+      return new GridBounds([defaultSW, defaultNE], this._mapZoom);
+    }
+
     return this._getGridBounds(
-      this._map.getBounds(),
+      mapBounds,
       this._mapZoom,
       this._swPadding,
       this._nePadding
